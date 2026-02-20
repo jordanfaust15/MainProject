@@ -1,17 +1,14 @@
 import * as fc from 'fast-check';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { CaptureModule } from '../../src/capture/capture-module';
-import { ContextExtractor } from '../../src/extraction/context-extractor';
+import { CaptureModule } from '../../src/lib/capture/capture-module';
+import { ContextExtractor } from '../../src/lib/extraction/context-extractor';
 import {
   VoiceInputProcessor,
   AudioRecorder,
   TranscriptionService,
-} from '../../src/voice/voice-processor';
-import { SessionManager } from '../../src/session/session-manager';
-import { DataStore } from '../../src/storage/data-store';
-import { TranscriptionResult } from '../../src/models';
+} from '../../src/lib/voice/voice-processor';
+import { SessionManager } from '../../src/lib/session/session-manager';
+import { MockDataStore } from '../helpers/mock-data-store';
+import { TranscriptionResult } from '../../src/lib/models';
 
 // ── Mocks ────────────────────────────────────────────────────
 
@@ -31,12 +28,8 @@ class MockTranscription implements TranscriptionService {
   }
 }
 
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'reentry-cprop-'));
-}
-
-function setup(dir: string) {
-  const store = new DataStore(dir);
+function setup() {
+  const store = new MockDataStore();
   const sessionManager = new SessionManager(store);
   const extractor = new ContextExtractor();
   const mockTranscription = new MockTranscription();
@@ -54,16 +47,6 @@ function setup(dir: string) {
 }
 
 describe('Capture Properties', () => {
-  let dir: string;
-
-  beforeEach(() => {
-    dir = tmpDir();
-  });
-
-  afterEach(() => {
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
-
   // Property 1: Capture accepts both input modalities
   // For any capture (quick or interrupt), the system should accept both
   // voice input and text input as valid input methods.
@@ -73,7 +56,7 @@ describe('Capture Properties', () => {
         fc.string({ minLength: 1, maxLength: 200 }),
         fc.constantFrom('quick' as const, 'interrupt' as const),
         async (text, type) => {
-          const { store, sessionManager, captureModule, mockTranscription } = setup(dir);
+          const { store, sessionManager, captureModule, mockTranscription } = setup();
           mockTranscription.text = text;
 
           const session = await sessionManager.createSession('proj-1');
@@ -95,8 +78,6 @@ describe('Capture Properties', () => {
             new ArrayBuffer(512)
           );
           expect(voiceResult.success).toBe(true);
-
-          store._reset();
         }
       ),
       { numRuns: 100 }
@@ -111,7 +92,7 @@ describe('Capture Properties', () => {
       fc.asyncProperty(
         fc.string({ minLength: 1, maxLength: 500 }),
         async (text) => {
-          const { store, sessionManager, captureModule } = setup(dir);
+          const { store, sessionManager, captureModule } = setup();
           const session = await sessionManager.createSession('proj-1');
 
           const start = Date.now();
@@ -120,7 +101,6 @@ describe('Capture Properties', () => {
           const duration = Date.now() - start;
 
           expect(duration).toBeLessThan(30_000);
-          store._reset();
         }
       ),
       { numRuns: 100 }
@@ -136,7 +116,7 @@ describe('Capture Properties', () => {
         fc.uuid(),
         fc.string({ minLength: 1, maxLength: 200 }),
         async (projectId, text) => {
-          const { store, sessionManager, captureModule } = setup(dir);
+          const { store, sessionManager, captureModule } = setup();
           const session = await sessionManager.createSession(projectId);
           const capSession = captureModule.startQuickCapture(session.id);
 
@@ -148,8 +128,6 @@ describe('Capture Properties', () => {
           const capture = await store.getCapture(result.captureId);
           expect(capture).not.toBeNull();
           expect(capture!.sessionId).toBe(session.id);
-
-          store._reset();
         }
       ),
       { numRuns: 100 }
@@ -165,7 +143,7 @@ describe('Capture Properties', () => {
         fc.uuid(),
         fc.string({ minLength: 1, maxLength: 200 }),
         async (projectId, text) => {
-          const { store, sessionManager, captureModule } = setup(dir);
+          const { store, sessionManager, captureModule } = setup();
           const session = await sessionManager.createSession(projectId);
           const capSession = captureModule.startQuickCapture(session.id);
 
@@ -175,8 +153,6 @@ describe('Capture Properties', () => {
           expect(updated).not.toBeNull();
           expect(updated!.exitTime).toBeDefined();
           expect(updated!.exitTime).toBeInstanceOf(Date);
-
-          store._reset();
         }
       ),
       { numRuns: 100 }
@@ -189,7 +165,7 @@ describe('Capture Properties', () => {
   test('Property 6: interrupt capture starts in under 2s', async () => {
     await fc.assert(
       fc.asyncProperty(fc.uuid(), async (projectId) => {
-        const { store, sessionManager, captureModule } = setup(dir);
+        const { sessionManager, captureModule } = setup();
         const session = await sessionManager.createSession(projectId);
 
         const start = Date.now();
@@ -199,8 +175,6 @@ describe('Capture Properties', () => {
         expect(capSession).toBeDefined();
         expect(capSession.type).toBe('interrupt');
         expect(duration).toBeLessThan(2_000);
-
-        store._reset();
       }),
       { numRuns: 100 }
     );
@@ -222,7 +196,7 @@ describe('Capture Properties', () => {
       fc.asyncProperty(
         fc.constantFrom(...sentences),
         async (sentence) => {
-          const { store, sessionManager, captureModule } = setup(dir);
+          const { store, sessionManager, captureModule } = setup();
           const session = await sessionManager.createSession('proj-1');
           const capSession = captureModule.startInterruptCapture(session.id);
 
@@ -235,8 +209,6 @@ describe('Capture Properties', () => {
           expect(result.originalInput).toBe(sentence);
           expect(result.extractedContext).toBeDefined();
           expect(result.extractedContext.originalInput).toBe(sentence);
-
-          store._reset();
         }
       ),
       { numRuns: 100 }

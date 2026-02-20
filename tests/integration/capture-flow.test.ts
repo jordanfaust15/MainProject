@@ -1,17 +1,14 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { DataStore } from '../../src/storage/data-store';
-import { SessionManager } from '../../src/session/session-manager';
-import { ContextExtractor } from '../../src/extraction/context-extractor';
-import { CaptureModule } from '../../src/capture/capture-module';
-import { BriefingGenerator } from '../../src/briefing/briefing-generator';
+import { MockDataStore } from '../helpers/mock-data-store';
+import { SessionManager } from '../../src/lib/session/session-manager';
+import { ContextExtractor } from '../../src/lib/extraction/context-extractor';
+import { CaptureModule } from '../../src/lib/capture/capture-module';
+import { BriefingGenerator } from '../../src/lib/briefing/briefing-generator';
 import {
   VoiceInputProcessor,
   AudioRecorder,
   TranscriptionService,
-} from '../../src/voice/voice-processor';
-import { TranscriptionResult } from '../../src/models';
+} from '../../src/lib/voice/voice-processor';
+import { TranscriptionResult } from '../../src/lib/models';
 
 // ── Mocks ────────────────────────────────────────────────────
 
@@ -28,12 +25,8 @@ class MockTranscription implements TranscriptionService {
   }
 }
 
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'reentry-integ-'));
-}
-
-function buildSystem(dir: string) {
-  const store = new DataStore(dir);
+function buildSystem() {
+  const store = new MockDataStore();
   const sessionManager = new SessionManager(store);
   const extractor = new ContextExtractor();
   const mockTranscription = new MockTranscription();
@@ -44,13 +37,8 @@ function buildSystem(dir: string) {
 }
 
 describe('Integration: Capture → Briefing Flow', () => {
-  let dir: string;
-
-  beforeEach(() => { dir = tmpDir(); });
-  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
-
   test('planned exit: text capture → return → complete briefing', async () => {
-    const { store, sessionManager, captureModule, briefingGenerator } = buildSystem(dir);
+    const { store, sessionManager, captureModule, briefingGenerator } = buildSystem();
 
     // 1. Start working on a project
     const session = await sessionManager.createSession('my-project');
@@ -86,7 +74,7 @@ describe('Integration: Capture → Briefing Flow', () => {
   });
 
   test('interrupt exit: quick capture → return → briefing', async () => {
-    const { sessionManager, captureModule, briefingGenerator } = buildSystem(dir);
+    const { sessionManager, captureModule, briefingGenerator } = buildSystem();
 
     const session = await sessionManager.createSession('urgent-project');
     const capSession = captureModule.startInterruptCapture(session.id);
@@ -103,7 +91,7 @@ describe('Integration: Capture → Briefing Flow', () => {
   });
 
   test('voice capture → transcription → extraction → briefing', async () => {
-    const { sessionManager, captureModule, briefingGenerator } = buildSystem(dir);
+    const { sessionManager, captureModule, briefingGenerator } = buildSystem();
 
     const session = await sessionManager.createSession('voice-project');
     const capSession = captureModule.startQuickCapture(session.id);
@@ -122,7 +110,7 @@ describe('Integration: Capture → Briefing Flow', () => {
   });
 
   test('no capture → return → partial briefing with guidance', async () => {
-    const { store, sessionManager, briefingGenerator } = buildSystem(dir);
+    const { store, sessionManager, briefingGenerator } = buildSystem();
 
     const session = await sessionManager.createSession('forgot-project');
     // Backdate entry time so exit is in the past
@@ -144,7 +132,7 @@ describe('Integration: Capture → Briefing Flow', () => {
   });
 
   test('multi-project session isolation', async () => {
-    const { sessionManager, captureModule, briefingGenerator } = buildSystem(dir);
+    const { sessionManager, captureModule, briefingGenerator } = buildSystem();
 
     // Project A
     const sessionA = await sessionManager.createSession('project-a');
@@ -167,10 +155,9 @@ describe('Integration: Capture → Briefing Flow', () => {
   });
 
   test('feedback submission → storage → retrieval', async () => {
-    const { store, sessionManager, briefingGenerator } = buildSystem(dir);
+    const { store, sessionManager, briefingGenerator } = buildSystem();
 
     const session = await sessionManager.createSession('feedback-project');
-    const capSession = briefingGenerator; // just use generator for feedback
 
     await briefingGenerator.submitFeedback(session.id, 4);
 
@@ -179,28 +166,25 @@ describe('Integration: Capture → Briefing Flow', () => {
     expect(updated!.feedbackTime).toBeInstanceOf(Date);
   });
 
-  test('application restart preserves data', async () => {
-    const sys1 = buildSystem(dir);
+  test('data persists in memory across operations', async () => {
+    const { store, sessionManager, captureModule, briefingGenerator } = buildSystem();
 
-    // Create session and capture in "first run"
-    const session = await sys1.sessionManager.createSession('persist-project');
-    const capSession = sys1.captureModule.startQuickCapture(session.id);
-    await sys1.captureModule.submitTextCapture(capSession, 'Working on persistence.');
+    // Create session and capture
+    const session = await sessionManager.createSession('persist-project');
+    const capSession = captureModule.startQuickCapture(session.id);
+    await captureModule.submitTextCapture(capSession, 'Working on persistence.');
 
     // Ensure saved
-    await sys1.store.immediateSave();
+    await store.immediateSave();
 
-    // "Restart" — new instances loading from disk
-    const sys2 = buildSystem(dir);
-    await sys2.store.load();
-
-    const briefing = await sys2.briefingGenerator.generateBriefing(session.id);
+    // Verify data is retrievable
+    const briefing = await briefingGenerator.generateBriefing(session.id);
     expect(briefing.hasCapture).toBe(true);
     expect(briefing.timeAway).toBeDefined();
   });
 
   test('multiple captures across sessions for same project', async () => {
-    const { sessionManager, captureModule, briefingGenerator } = buildSystem(dir);
+    const { sessionManager, captureModule, briefingGenerator } = buildSystem();
 
     // First work session
     const s1 = await sessionManager.createSession('multi-session');

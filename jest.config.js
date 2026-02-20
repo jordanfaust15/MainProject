@@ -5,12 +5,12 @@ module.exports = {
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
   collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/main/**',
-    '!src/preload/**',
-    '!src/ui/**',
-    '!src/**/index.ts',
+    'src/lib/**/*.ts',
+    '!src/lib/**/index.ts',
   ],
   coverageDirectory: 'coverage',
   coverageThreshold: {

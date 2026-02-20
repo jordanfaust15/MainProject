@@ -1,5 +1,5 @@
 import { RestartBriefing, TimeAwayDisplay } from '../models';
-import { DataStore } from '../storage';
+import { IDataStore } from '../storage';
 import { SessionManager } from '../session';
 
 const CONTEXT_ELEMENT_NAMES = ['intent', 'lastAction', 'openLoops', 'nextAction'] as const;
@@ -9,7 +9,7 @@ const DEFAULT_RECONSTRUCTION_GUIDANCE =
 
 export class BriefingGenerator {
   constructor(
-    private readonly store: DataStore,
+    private readonly store: IDataStore,
     private readonly sessionManager: SessionManager
   ) {}
 

@@ -1,15 +1,14 @@
-import * as crypto from 'crypto';
 import { Session, TimeAwayDisplay } from '../models';
-import { DataStore } from '../storage';
+import { IDataStore } from '../storage';
 
 export class SessionManager {
-  constructor(private readonly store: DataStore) {}
+  constructor(private readonly store: IDataStore) {}
 
   // ── Session lifecycle ──────────────────────────────────────
 
   async createSession(projectId: string): Promise<Session> {
     const session: Session = {
-      id: crypto.randomUUID(),
+      id: globalThis.crypto.randomUUID(),
       projectId,
       entryTime: new Date(),
     };

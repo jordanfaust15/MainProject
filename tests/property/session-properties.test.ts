@@ -1,29 +1,14 @@
 import * as fc from 'fast-check';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { SessionManager } from '../../src/session/session-manager';
-import { DataStore } from '../../src/storage/data-store';
-import { TimeAwayDisplay } from '../../src/models';
-
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'reentry-sprop-'));
-}
+import { SessionManager } from '../../src/lib/session/session-manager';
+import { MockDataStore } from '../helpers/mock-data-store';
 
 describe('Session Properties', () => {
-  let dir: string;
-  let store: DataStore;
+  let store: MockDataStore;
   let manager: SessionManager;
 
   beforeEach(() => {
-    dir = tmpDir();
-    store = new DataStore(dir);
+    store = new MockDataStore();
     manager = new SessionManager(store);
-  });
-
-  afterEach(() => {
-    store.stopAutoSave();
-    fs.rmSync(dir, { recursive: true, force: true });
   });
 
   // Property 13: Session creation on project start

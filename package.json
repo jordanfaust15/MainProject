@@ -2,16 +2,16 @@
   "name": "reentry",
   "version": "0.1.0",
   "description": "Personal restart assistant - captures working context and provides briefings on re-entry",
-  "main": "dist/main/main.js",
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "test": "jest",
     "test:unit": "jest --testPathPattern=tests/unit",
     "test:property": "jest --testPathPattern=tests/property",
     "test:integration": "jest --testPathPattern=tests/integration",
     "test:perf": "jest --testPathPattern=tests/performance",
-    "test:coverage": "jest --coverage",
-    "build": "tsc",
-    "start": "electron dist/main/main.js"
+    "test:coverage": "jest --coverage"
   },
   "repository": {
     "type": "git",
@@ -20,13 +20,13 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/jordanfaust15/MainProject/issues"
   },
   "homepage": "https://github.com/jordanfaust15/MainProject#readme",
   "dependencies": {
-    "electron": "^40.6.0",
+    "@supabase/supabase-js": "^2.49.1",
+    "next": "^15.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },

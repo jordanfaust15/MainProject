@@ -1,16 +1,13 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { CaptureModule } from '../../src/capture/capture-module';
-import { ContextExtractor } from '../../src/extraction/context-extractor';
+import { CaptureModule } from '../../src/lib/capture/capture-module';
+import { ContextExtractor } from '../../src/lib/extraction/context-extractor';
 import {
   VoiceInputProcessor,
   AudioRecorder,
   TranscriptionService,
-} from '../../src/voice/voice-processor';
-import { SessionManager } from '../../src/session/session-manager';
-import { DataStore } from '../../src/storage/data-store';
-import { TranscriptionResult } from '../../src/models';
+} from '../../src/lib/voice/voice-processor';
+import { SessionManager } from '../../src/lib/session/session-manager';
+import { MockDataStore } from '../helpers/mock-data-store';
+import { TranscriptionResult } from '../../src/lib/models';
 
 // ── Mock voice dependencies ──────────────────────────────────
 
@@ -34,13 +31,8 @@ class MockTranscription implements TranscriptionService {
   }
 }
 
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'reentry-cap-'));
-}
-
 describe('CaptureModule', () => {
-  let dir: string;
-  let store: DataStore;
+  let store: MockDataStore;
   let sessionManager: SessionManager;
   let extractor: ContextExtractor;
   let voiceProcessor: VoiceInputProcessor;
@@ -48,8 +40,7 @@ describe('CaptureModule', () => {
   let captureModule: CaptureModule;
 
   beforeEach(async () => {
-    dir = tmpDir();
-    store = new DataStore(dir);
+    store = new MockDataStore();
     sessionManager = new SessionManager(store);
     extractor = new ContextExtractor();
     mockTranscription = new MockTranscription();
@@ -63,11 +54,6 @@ describe('CaptureModule', () => {
       sessionManager,
       store
     );
-  });
-
-  afterEach(() => {
-    store.stopAutoSave();
-    fs.rmSync(dir, { recursive: true, force: true });
   });
 
   // ── Quick capture ──────────────────────────────────────────

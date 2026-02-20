@@ -1,18 +1,11 @@
 import * as fc from 'fast-check';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { BriefingGenerator } from '../../src/briefing/briefing-generator';
-import { SessionManager } from '../../src/session/session-manager';
-import { DataStore } from '../../src/storage/data-store';
-import { Capture, ContextElements } from '../../src/models';
+import { BriefingGenerator } from '../../src/lib/briefing/briefing-generator';
+import { SessionManager } from '../../src/lib/session/session-manager';
+import { MockDataStore } from '../helpers/mock-data-store';
+import { Capture, ContextElements } from '../../src/lib/models';
 
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'reentry-bprop-'));
-}
-
-function setup(dir: string) {
-  const store = new DataStore(dir);
+function setup() {
+  const store = new MockDataStore();
   const sessionManager = new SessionManager(store);
   const generator = new BriefingGenerator(store, sessionManager);
   return { store, sessionManager, generator };
@@ -34,23 +27,13 @@ const contextElementsArb = fc.record({
 });
 
 describe('Briefing Properties', () => {
-  let dir: string;
-
-  beforeEach(() => {
-    dir = tmpDir();
-  });
-
-  afterEach(() => {
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
-
   // Property 8: Briefing is generated on session return
   // For any session return event, the briefing generator should create
   // a restart briefing.
   test('Property 8: briefing is always generated for any session', async () => {
     await fc.assert(
       fc.asyncProperty(fc.uuid(), async (projectId) => {
-        const { store, sessionManager, generator } = setup(dir);
+        const { store, sessionManager, generator } = setup();
         const session = await sessionManager.createSession(projectId);
 
         const briefing = await generator.generateBriefing(session.id);
@@ -58,8 +41,6 @@ describe('Briefing Properties', () => {
         expect(briefing).toBeDefined();
         expect(briefing.sessionId).toBe(session.id);
         expect(briefing.generatedAt).toBeInstanceOf(Date);
-
-        store._reset();
       }),
       { numRuns: 100 }
     );
@@ -71,7 +52,7 @@ describe('Briefing Properties', () => {
   test('Property 9: captured context elements appear in briefing', async () => {
     await fc.assert(
       fc.asyncProperty(contextElementsArb, async (elements) => {
-        const { store, sessionManager, generator } = setup(dir);
+        const { store, sessionManager, generator } = setup();
         const session = await sessionManager.createSession('proj-1');
         await sessionManager.closeSession(
           session.id,
@@ -108,8 +89,6 @@ describe('Briefing Properties', () => {
         if (elements.nextAction) {
           expect(briefing.nextAction).toEqual(elements.nextAction);
         }
-
-        store._reset();
       }),
       { numRuns: 100 }
     );
@@ -124,7 +103,7 @@ describe('Briefing Properties', () => {
         fc.uuid(),
         fc.boolean(), // whether to add a capture
         async (projectId, withCapture) => {
-          const { store, sessionManager, generator } = setup(dir);
+          const { store, sessionManager, generator } = setup();
           const session = await sessionManager.createSession(projectId);
           await sessionManager.closeSession(
             session.id,
@@ -151,8 +130,6 @@ describe('Briefing Properties', () => {
           expect(briefing.timeAway).toBeDefined();
           expect(briefing.timeAway.formatted).toBeDefined();
           expect(typeof briefing.timeAway.formatted).toBe('string');
-
-          store._reset();
         }
       ),
       { numRuns: 100 }
@@ -165,15 +142,13 @@ describe('Briefing Properties', () => {
   test('Property 11: no-capture sessions indicate missing context', async () => {
     await fc.assert(
       fc.asyncProperty(fc.uuid(), async (projectId) => {
-        const { store, sessionManager, generator } = setup(dir);
+        const { sessionManager, generator } = setup();
         const session = await sessionManager.createSession(projectId);
 
         const briefing = await generator.generateBriefing(session.id);
 
         expect(briefing.hasCapture).toBe(false);
         expect(briefing.missingElements.length).toBeGreaterThan(0);
-
-        store._reset();
       }),
       { numRuns: 100 }
     );
@@ -185,7 +160,7 @@ describe('Briefing Properties', () => {
   test('Property 12: briefing generation completes in <5s', async () => {
     await fc.assert(
       fc.asyncProperty(fc.uuid(), async (projectId) => {
-        const { store, sessionManager, generator } = setup(dir);
+        const { sessionManager, generator } = setup();
         const session = await sessionManager.createSession(projectId);
 
         const start = Date.now();
@@ -193,8 +168,6 @@ describe('Briefing Properties', () => {
         const duration = Date.now() - start;
 
         expect(duration).toBeLessThan(5000);
-
-        store._reset();
       }),
       { numRuns: 100 }
     );
@@ -209,7 +182,7 @@ describe('Briefing Properties', () => {
         fc.uuid(),
         fc.integer({ min: 1, max: 5 }),
         async (projectId, rating) => {
-          const { store, sessionManager, generator } = setup(dir);
+          const { store, sessionManager, generator } = setup();
           const session = await sessionManager.createSession(projectId);
 
           // Should not throw — feedback mechanism is available
@@ -217,8 +190,6 @@ describe('Briefing Properties', () => {
 
           const updated = await store.getSession(session.id);
           expect(updated!.feedbackRating).toBe(rating);
-
-          store._reset();
         }
       ),
       { numRuns: 100 }
@@ -234,7 +205,7 @@ describe('Briefing Properties', () => {
         fc.uuid(),
         fc.integer({ min: 1, max: 5 }),
         async (projectId, rating) => {
-          const { store, sessionManager, generator } = setup(dir);
+          const { store, sessionManager, generator } = setup();
           const session = await sessionManager.createSession(projectId);
           const before = new Date();
 
@@ -247,8 +218,6 @@ describe('Briefing Properties', () => {
           expect(updated!.feedbackTime!.getTime()).toBeGreaterThanOrEqual(
             before.getTime()
           );
-
-          store._reset();
         }
       ),
       { numRuns: 100 }
@@ -261,7 +230,7 @@ describe('Briefing Properties', () => {
   test('Property 32: partial briefing generated for sessions without capture', async () => {
     await fc.assert(
       fc.asyncProperty(fc.uuid(), async (projectId) => {
-        const { store, sessionManager, generator } = setup(dir);
+        const { sessionManager, generator } = setup();
         const session = await sessionManager.createSession(projectId);
         await sessionManager.closeSession(
           session.id,
@@ -274,8 +243,6 @@ describe('Briefing Properties', () => {
         expect(briefing.hasCapture).toBe(false);
         expect(briefing.timeAway).toBeDefined();
         expect(briefing.generatedAt).toBeInstanceOf(Date);
-
-        store._reset();
       }),
       { numRuns: 100 }
     );
@@ -287,7 +254,7 @@ describe('Briefing Properties', () => {
   test('Property 33: missing elements are explicitly listed', async () => {
     await fc.assert(
       fc.asyncProperty(contextElementsArb, async (elements) => {
-        const { store, sessionManager, generator } = setup(dir);
+        const { store, sessionManager, generator } = setup();
         const session = await sessionManager.createSession('proj-1');
         await sessionManager.closeSession(
           session.id,
@@ -320,8 +287,6 @@ describe('Briefing Properties', () => {
         if (elements.lastAction) expect(briefing.missingElements).not.toContain('lastAction');
         if (elements.openLoops) expect(briefing.missingElements).not.toContain('openLoops');
         if (elements.nextAction) expect(briefing.missingElements).not.toContain('nextAction');
-
-        store._reset();
       }),
       { numRuns: 100 }
     );
@@ -333,7 +298,7 @@ describe('Briefing Properties', () => {
   test('Property 34: available elements are displayed even when others are missing', async () => {
     await fc.assert(
       fc.asyncProperty(contextElementsArb, async (elements) => {
-        const { store, sessionManager, generator } = setup(dir);
+        const { store, sessionManager, generator } = setup();
         const session = await sessionManager.createSession('proj-1');
         await sessionManager.closeSession(
           session.id,
@@ -359,8 +324,6 @@ describe('Briefing Properties', () => {
         if (elements.lastAction) expect(briefing.lastAction).toEqual(elements.lastAction);
         if (elements.openLoops) expect(briefing.openLoops).toEqual(elements.openLoops);
         if (elements.nextAction) expect(briefing.nextAction).toEqual(elements.nextAction);
-
-        store._reset();
       }),
       { numRuns: 100 }
     );
@@ -372,7 +335,7 @@ describe('Briefing Properties', () => {
   test('Property 35: no-capture briefings include reconstruction guidance', async () => {
     await fc.assert(
       fc.asyncProperty(fc.uuid(), async (projectId) => {
-        const { store, sessionManager, generator } = setup(dir);
+        const { sessionManager, generator } = setup();
         const session = await sessionManager.createSession(projectId);
 
         const briefing = await generator.generateBriefing(session.id);
@@ -381,8 +344,6 @@ describe('Briefing Properties', () => {
         expect(briefing.reconstructionGuidance).toBeDefined();
         expect(typeof briefing.reconstructionGuidance).toBe('string');
         expect(briefing.reconstructionGuidance!.length).toBeGreaterThan(0);
-
-        store._reset();
       }),
       { numRuns: 100 }
     );
@@ -397,7 +358,7 @@ describe('Briefing Properties', () => {
         fc.uuid(),
         fc.boolean(),
         async (projectId, withCapture) => {
-          const { store, sessionManager, generator } = setup(dir);
+          const { store, sessionManager, generator } = setup();
           const session = await sessionManager.createSession(projectId);
           await sessionManager.closeSession(
             session.id,
@@ -432,8 +393,6 @@ describe('Briefing Properties', () => {
           const card = generator.formatBriefingCard(briefing);
           expect(card).toContain('RESTART BRIEFING');
           expect(card).toContain('Away for:');
-
-          store._reset();
         }
       ),
       { numRuns: 100 }

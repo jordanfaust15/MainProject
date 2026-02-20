@@ -1,4 +1,4 @@
-import { ContextExtractor } from '../../src/extraction/context-extractor';
+import { ContextExtractor } from '../../src/lib/extraction/context-extractor';
 
 describe('ContextExtractor', () => {
   let extractor: ContextExtractor;

@@ -1,14 +1,12 @@
-import * as crypto from 'crypto';
 import {
   CaptureSession,
   CaptureResult,
   Capture,
-  ContextElements,
 } from '../models';
 import { ContextExtractor } from '../extraction';
 import { VoiceInputProcessor } from '../voice';
 import { SessionManager } from '../session';
-import { DataStore } from '../storage';
+import { IDataStore } from '../storage';
 
 const QUICK_CAPTURE_TIMEOUT_MS = 30_000;
 const INTERRUPT_CAPTURE_TIMEOUT_MS = 2_000;
@@ -18,14 +16,14 @@ export class CaptureModule {
     private readonly extractor: ContextExtractor,
     private readonly voiceProcessor: VoiceInputProcessor,
     private readonly sessionManager: SessionManager,
-    private readonly store: DataStore
+    private readonly store: IDataStore
   ) {}
 
   // ── Initiation ─────────────────────────────────────────────
 
   startQuickCapture(sessionId: string): CaptureSession {
     return {
-      id: crypto.randomUUID(),
+      id: globalThis.crypto.randomUUID(),
       sessionId,
       type: 'quick',
       startTime: new Date(),
@@ -35,7 +33,7 @@ export class CaptureModule {
 
   startInterruptCapture(sessionId: string): CaptureSession {
     return {
-      id: crypto.randomUUID(),
+      id: globalThis.crypto.randomUUID(),
       sessionId,
       type: 'interrupt',
       startTime: new Date(),
@@ -89,7 +87,7 @@ export class CaptureModule {
 
     // Build capture record
     const capture: Capture = {
-      id: crypto.randomUUID(),
+      id: globalThis.crypto.randomUUID(),
       sessionId: captureSession.sessionId,
       type: captureSession.type,
       originalInput: text,

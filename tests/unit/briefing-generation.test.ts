@@ -1,14 +1,7 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { BriefingGenerator } from '../../src/briefing/briefing-generator';
-import { SessionManager } from '../../src/session/session-manager';
-import { DataStore } from '../../src/storage/data-store';
-import { Capture, ContextElements } from '../../src/models';
-
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'reentry-brief-'));
-}
+import { BriefingGenerator } from '../../src/lib/briefing/briefing-generator';
+import { SessionManager } from '../../src/lib/session/session-manager';
+import { MockDataStore } from '../helpers/mock-data-store';
+import { Capture, ContextElements } from '../../src/lib/models';
 
 function makeCapture(
   sessionId: string,
@@ -28,21 +21,14 @@ function makeCapture(
 }
 
 describe('BriefingGenerator', () => {
-  let dir: string;
-  let store: DataStore;
+  let store: MockDataStore;
   let sessionManager: SessionManager;
   let generator: BriefingGenerator;
 
   beforeEach(() => {
-    dir = tmpDir();
-    store = new DataStore(dir);
+    store = new MockDataStore();
     sessionManager = new SessionManager(store);
     generator = new BriefingGenerator(store, sessionManager);
-  });
-
-  afterEach(() => {
-    store.stopAutoSave();
-    fs.rmSync(dir, { recursive: true, force: true });
   });
 
   // ── Complete briefing ──────────────────────────────────────

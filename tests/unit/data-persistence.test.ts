@@ -1,12 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { DataStore } from '../../src/storage/data-store';
-import { Session, Capture, ContextElements } from '../../src/models';
-
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'reentry-test-'));
-}
+import { MockDataStore } from '../helpers/mock-data-store';
+import { Session, Capture } from '../../src/lib/models';
 
 function makeSession(overrides: Partial<Session> = {}): Session {
   return {
@@ -33,17 +26,10 @@ function makeCapture(overrides: Partial<Capture> = {}): Capture {
 }
 
 describe('DataStore', () => {
-  let dir: string;
-  let store: DataStore;
+  let store: MockDataStore;
 
   beforeEach(() => {
-    dir = tmpDir();
-    store = new DataStore(dir);
-  });
-
-  afterEach(() => {
-    store.stopAutoSave();
-    fs.rmSync(dir, { recursive: true, force: true });
+    store = new MockDataStore();
   });
 
   // ── Session CRUD ───────────────────────────────────────────
@@ -117,9 +103,9 @@ describe('DataStore', () => {
     await store.saveFeedback('unknown', 5, new Date());
   });
 
-  // ── Persistence round-trip ─────────────────────────────────
+  // ── Persistence round-trip (in-memory) ─────────────────────
 
-  test('data survives save and load', async () => {
+  test('data survives save and retrieval', async () => {
     const session = makeSession({
       exitTime: new Date('2025-01-01T12:00:00Z'),
     });
@@ -129,98 +115,16 @@ describe('DataStore', () => {
     await store.saveCapture(capture);
     await store.save();
 
-    // Load in a fresh store
-    const store2 = new DataStore(dir);
-    await store2.load();
-
-    const loadedSession = await store2.getSession('sess-1');
+    const loadedSession = await store.getSession('sess-1');
     expect(loadedSession).not.toBeNull();
     expect(loadedSession!.id).toBe(session.id);
     expect(loadedSession!.entryTime).toEqual(session.entryTime);
     expect(loadedSession!.exitTime).toEqual(session.exitTime);
 
-    const loadedCapture = await store2.getCapture('cap-1');
+    const loadedCapture = await store.getCapture('cap-1');
     expect(loadedCapture).not.toBeNull();
     expect(loadedCapture!.originalInput).toBe(capture.originalInput);
     expect(loadedCapture!.timestamp).toEqual(capture.timestamp);
-  });
-
-  // ── Atomic writes ──────────────────────────────────────────
-
-  test('creates data directory if it does not exist', async () => {
-    const nestedDir = path.join(dir, 'nested', 'deep');
-    const nestedStore = new DataStore(nestedDir);
-
-    await nestedStore.saveSession(makeSession());
-    await nestedStore.save();
-
-    expect(fs.existsSync(path.join(nestedDir, 'data.json'))).toBe(true);
-  });
-
-  test('temp file is removed after successful save', async () => {
-    await store.saveSession(makeSession());
-    await store.save();
-
-    const tempFile = path.join(dir, 'data.temp.json');
-    expect(fs.existsSync(tempFile)).toBe(false);
-  });
-
-  // ── Backup rotation ────────────────────────────────────────
-
-  test('rotates backups on save', async () => {
-    // Save 1
-    await store.saveSession(makeSession({ id: 'v1' }));
-    await store.save();
-
-    // Save 2
-    await store.saveSession(makeSession({ id: 'v2' }));
-    await store.save();
-
-    // Save 3
-    await store.saveSession(makeSession({ id: 'v3' }));
-    await store.save();
-
-    // backup.1 should exist (previous version)
-    expect(fs.existsSync(path.join(dir, 'data.backup.1.json'))).toBe(true);
-    // backup.2 should exist
-    expect(fs.existsSync(path.join(dir, 'data.backup.2.json'))).toBe(true);
-  });
-
-  // ── Load from backup ───────────────────────────────────────
-
-  test('loads from backup if main file is corrupted', async () => {
-    await store.saveSession(makeSession());
-    await store.save();
-
-    // Save again to create backup.1
-    await store.saveSession(makeSession({ id: 'sess-2' }));
-    await store.save();
-
-    // Corrupt main file
-    fs.writeFileSync(path.join(dir, 'data.json'), 'CORRUPT!', 'utf-8');
-
-    const store2 = new DataStore(dir);
-    await store2.load();
-
-    // Should have loaded from backup — sess-1 should be there
-    const session = await store2.getSession('sess-1');
-    expect(session).not.toBeNull();
-  });
-
-  test('starts fresh if all files are corrupted', async () => {
-    // Create a main file and backups, all corrupted
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'data.json'), 'BAD', 'utf-8');
-    fs.writeFileSync(path.join(dir, 'data.backup.1.json'), 'BAD', 'utf-8');
-    fs.writeFileSync(path.join(dir, 'data.backup.2.json'), 'BAD', 'utf-8');
-    fs.writeFileSync(path.join(dir, 'data.backup.3.json'), 'BAD', 'utf-8');
-
-    const store2 = new DataStore(dir);
-    await store2.load();
-
-    // Should start with empty data
-    const result = await store2.getSession('anything');
-    expect(result).toBeNull();
   });
 
   // ── Dirty tracking ─────────────────────────────────────────
@@ -237,26 +141,17 @@ describe('DataStore', () => {
     expect(store._isDirty()).toBe(false);
   });
 
-  // ── Failure notification ───────────────────────────────────
+  // ── Reset ──────────────────────────────────────────────────
 
-  test('notifies listeners on save failure', async () => {
-    // Use a read-only directory to trigger write failure
-    const readOnlyDir = path.join(dir, 'readonly');
-    fs.mkdirSync(readOnlyDir);
-    fs.writeFileSync(path.join(readOnlyDir, 'data.json'), '{}', 'utf-8');
-    fs.chmodSync(readOnlyDir, 0o444);
+  test('reset clears all data', async () => {
+    await store.saveSession(makeSession());
+    await store.saveCapture(makeCapture());
 
-    const failStore = new DataStore(readOnlyDir);
-    const errors: Error[] = [];
-    failStore.onFailure((err) => errors.push(err));
+    store._reset();
 
-    await failStore.saveSession(makeSession());
-
-    await expect(failStore.save()).rejects.toThrow();
-    expect(errors).toHaveLength(1);
-
-    // Cleanup: restore permissions so afterEach can delete
-    fs.chmodSync(readOnlyDir, 0o755);
+    expect(await store.getSession('sess-1')).toBeNull();
+    expect(await store.getCapture('cap-1')).toBeNull();
+    expect(store._isDirty()).toBe(false);
   });
 
   // ── Project index deduplication ────────────────────────────

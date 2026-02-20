@@ -3,8 +3,8 @@ import {
   AudioRecorder,
   TranscriptionService,
   SILENCE_THRESHOLD_MS,
-} from '../../src/voice/voice-processor';
-import { TranscriptionResult } from '../../src/models';
+} from '../../src/lib/voice/voice-processor';
+import { TranscriptionResult } from '../../src/lib/models';
 
 // ── Mock implementations ─────────────────────────────────────
 

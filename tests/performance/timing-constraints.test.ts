@@ -1,17 +1,14 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { DataStore } from '../../src/storage/data-store';
-import { SessionManager } from '../../src/session/session-manager';
-import { ContextExtractor } from '../../src/extraction/context-extractor';
-import { CaptureModule } from '../../src/capture/capture-module';
-import { BriefingGenerator } from '../../src/briefing/briefing-generator';
+import { MockDataStore } from '../helpers/mock-data-store';
+import { SessionManager } from '../../src/lib/session/session-manager';
+import { ContextExtractor } from '../../src/lib/extraction/context-extractor';
+import { CaptureModule } from '../../src/lib/capture/capture-module';
+import { BriefingGenerator } from '../../src/lib/briefing/briefing-generator';
 import {
   VoiceInputProcessor,
   AudioRecorder,
   TranscriptionService,
-} from '../../src/voice/voice-processor';
-import { Capture, Session, TranscriptionResult } from '../../src/models';
+} from '../../src/lib/voice/voice-processor';
+import { Capture, TranscriptionResult } from '../../src/lib/models';
 
 class MockRecorder implements AudioRecorder {
   async requestPermission(): Promise<void> {}
@@ -25,12 +22,8 @@ class MockTranscription implements TranscriptionService {
   }
 }
 
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'reentry-perf-'));
-}
-
-function buildSystem(dir: string) {
-  const store = new DataStore(dir);
+function buildSystem() {
+  const store = new MockDataStore();
   const sessionManager = new SessionManager(store);
   const extractor = new ContextExtractor();
   const voiceProcessor = new VoiceInputProcessor(new MockRecorder(), new MockTranscription());
@@ -40,15 +33,10 @@ function buildSystem(dir: string) {
 }
 
 describe('Performance: Timing Constraints', () => {
-  let dir: string;
-
-  beforeEach(() => { dir = tmpDir(); });
-  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
-
   // ── Quick capture: <30 seconds ─────────────────────────────
 
   test('quick capture end-to-end completes well under 30s', async () => {
-    const { sessionManager, captureModule } = buildSystem(dir);
+    const { sessionManager, captureModule } = buildSystem();
     const session = await sessionManager.createSession('perf-project');
 
     const durations: number[] = [];
@@ -72,7 +60,7 @@ describe('Performance: Timing Constraints', () => {
   // ── Interrupt capture: accessible <2 seconds ───────────────
 
   test('interrupt capture becomes accessible in <2s', async () => {
-    const { sessionManager, captureModule } = buildSystem(dir);
+    const { sessionManager, captureModule } = buildSystem();
     const session = await sessionManager.createSession('perf-project');
 
     const durations: number[] = [];
@@ -92,7 +80,7 @@ describe('Performance: Timing Constraints', () => {
   // ── Briefing generation: <5 seconds ────────────────────────
 
   test('briefing generation completes in <5s', async () => {
-    const { store, sessionManager, briefingGenerator } = buildSystem(dir);
+    const { store, sessionManager, briefingGenerator } = buildSystem();
     const session = await sessionManager.createSession('perf-project');
     await sessionManager.closeSession(
       session.id,
@@ -135,7 +123,7 @@ describe('Performance: Timing Constraints', () => {
   // ── Context extraction performance ─────────────────────────
 
   test('context extraction handles large inputs quickly', () => {
-    const { extractor } = buildSystem(dir);
+    const { extractor } = buildSystem();
 
     // Generate a large input (multiple paragraphs)
     const largeInput = Array(50)
@@ -155,15 +143,10 @@ describe('Performance: Timing Constraints', () => {
 });
 
 describe('Performance: Load Testing', () => {
-  let dir: string;
-
-  beforeEach(() => { dir = tmpDir(); });
-  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
-
   // ── 1000+ sessions per project ─────────────────────────────
 
   test('handles 1000 sessions per project', async () => {
-    const { store, sessionManager, briefingGenerator } = buildSystem(dir);
+    const { store, sessionManager, briefingGenerator } = buildSystem();
 
     // Create 1000 sessions
     for (let i = 0; i < 1000; i++) {
@@ -186,7 +169,7 @@ describe('Performance: Load Testing', () => {
   // ── Session history retrieval at scale ─────────────────────
 
   test('session history retrieval stays fast with many sessions', async () => {
-    const { sessionManager } = buildSystem(dir);
+    const { sessionManager } = buildSystem();
 
     for (let i = 0; i < 500; i++) {
       await sessionManager.createSession('history-project');
@@ -203,7 +186,7 @@ describe('Performance: Load Testing', () => {
   // ── Persistence with large data ────────────────────────────
 
   test('save and load with many sessions', async () => {
-    const { store, sessionManager } = buildSystem(dir);
+    const { store, sessionManager } = buildSystem();
 
     // Create 200 sessions with captures
     for (let i = 0; i < 200; i++) {
@@ -231,17 +214,10 @@ describe('Performance: Load Testing', () => {
     const saveDuration = Date.now() - saveStart;
     expect(saveDuration).toBeLessThan(5_000);
 
-    // Load in fresh store
-    const store2 = new DataStore(dir);
-    const loadStart = Date.now();
-    await store2.load();
-    const loadDuration = Date.now() - loadStart;
-    expect(loadDuration).toBeLessThan(5_000);
-
     // Verify data integrity
-    const session = await store2.getSession(
-      (await store2.getSessionsByProject('project-0'))[0].id
-    );
+    const sessions = await store.getSessionsByProject('project-0');
+    expect(sessions.length).toBeGreaterThan(0);
+    const session = await store.getSession(sessions[0].id);
     expect(session).not.toBeNull();
   });
 });

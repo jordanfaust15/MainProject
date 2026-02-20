@@ -1,5 +1,4 @@
 import { RecordingSession, TranscriptionResult } from '../models';
-import * as crypto from 'crypto';
 
 /** Abstraction over the platform audio recording API. */
 export interface AudioRecorder {
@@ -45,7 +44,7 @@ export class VoiceInputProcessor {
     await this.recorder.requestPermission();
 
     const session: RecordingSession = {
-      id: crypto.randomUUID(),
+      id: globalThis.crypto.randomUUID(),
       startTime: new Date(),
       isActive: true,
     };

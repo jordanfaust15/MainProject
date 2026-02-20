@@ -1,5 +1,5 @@
 import * as fc from 'fast-check';
-import { ContextExtractor } from '../../src/extraction/context-extractor';
+import { ContextExtractor } from '../../src/lib/extraction/context-extractor';
 
 const extractor = new ContextExtractor();
 

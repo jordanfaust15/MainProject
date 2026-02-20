@@ -1,27 +1,13 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import { SessionManager } from '../../src/session/session-manager';
-import { DataStore } from '../../src/storage/data-store';
-
-function tmpDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'reentry-sess-'));
-}
+import { SessionManager } from '../../src/lib/session/session-manager';
+import { MockDataStore } from '../helpers/mock-data-store';
 
 describe('SessionManager', () => {
-  let dir: string;
-  let store: DataStore;
+  let store: MockDataStore;
   let manager: SessionManager;
 
   beforeEach(() => {
-    dir = tmpDir();
-    store = new DataStore(dir);
+    store = new MockDataStore();
     manager = new SessionManager(store);
-  });
-
-  afterEach(() => {
-    store.stopAutoSave();
-    fs.rmSync(dir, { recursive: true, force: true });
   });
 
   // ── Session creation ───────────────────────────────────────
