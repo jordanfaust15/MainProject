@@ -1,0 +1,43 @@
+{
+  "name": "reentry",
+  "version": "0.1.0",
+  "description": "Personal restart assistant - captures working context and provides briefings on re-entry",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "test": "jest",
+    "test:unit": "jest --testPathPattern=tests/unit",
+    "test:property": "jest --testPathPattern=tests/property",
+    "test:integration": "jest --testPathPattern=tests/integration",
+    "test:perf": "jest --testPathPattern=tests/performance",
+    "test:coverage": "jest --coverage",
+    "build": "tsc",
+    "start": "electron dist/main/main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jordanfaust15/MainProject.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jordanfaust15/MainProject/issues"
+  },
+  "homepage": "https://github.com/jordanfaust15/MainProject#readme",
+  "dependencies": {
+    "electron": "^40.6.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^25.3.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "fast-check": "^4.5.3",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3"
+  }
+}
