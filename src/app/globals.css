@@ -58,6 +58,89 @@ body {
   margin-top: 4px;
 }
 
+/* ── Workflow guide ──────────────────────── */
+.workflow-guide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  gap: 0;
+}
+
+.workflow-step-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.workflow-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.workflow-step:hover {
+  border-color: var(--text-muted);
+}
+
+.workflow-step.active {
+  border-color: var(--primary);
+  color: var(--text);
+  background: rgba(233, 69, 96, 0.1);
+}
+
+.workflow-step.done {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.workflow-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--border);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.workflow-step.active .workflow-num {
+  background: var(--primary);
+  color: white;
+}
+
+.workflow-step.done .workflow-num {
+  background: var(--success);
+  color: white;
+}
+
+.workflow-label {
+  font-weight: 500;
+}
+
+.workflow-connector {
+  width: 16px;
+  height: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.workflow-connector.done {
+  background: var(--success);
+}
+
 /* ── Navigation ──────────────────────────── */
 .nav {
   display: flex;

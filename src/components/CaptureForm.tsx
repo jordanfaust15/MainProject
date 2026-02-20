@@ -10,6 +10,7 @@ interface CaptureFormProps {
   onStartQuickCapture: (sessionId: string) => CaptureSession;
   onStartInterruptCapture: (sessionId: string) => CaptureSession;
   onSubmitTextCapture: (captureSession: CaptureSession, text: string) => Promise<CaptureResult>;
+  onCaptureComplete?: () => void;
   projectId: string;
 }
 
@@ -19,6 +20,7 @@ export function CaptureForm({
   onStartQuickCapture,
   onStartInterruptCapture,
   onSubmitTextCapture,
+  onCaptureComplete,
   projectId,
 }: CaptureFormProps) {
   const [text, setText] = useState('');
@@ -42,7 +44,8 @@ export function CaptureForm({
       if (result.success) {
         setText('');
         timer.stop();
-        setCaptureStatus({ message: 'Capture saved! Context extracted.', type: 'success' });
+        setCaptureStatus({ message: 'Capture saved! Context extracted. Check the Briefing tab when you return.', type: 'success' });
+        onCaptureComplete?.();
       } else {
         setCaptureStatus({ message: `Capture failed: ${result.error ?? 'Unknown error'}`, type: 'error' });
       }
@@ -66,6 +69,7 @@ export function CaptureForm({
       if (result.success) {
         setText('');
         setCaptureStatus({ message: 'Interrupt capture saved!', type: 'success' });
+        onCaptureComplete?.();
       }
     } catch (err) {
       setCaptureStatus({ message: `Error: ${err instanceof Error ? err.message : 'Unknown'}`, type: 'error' });
